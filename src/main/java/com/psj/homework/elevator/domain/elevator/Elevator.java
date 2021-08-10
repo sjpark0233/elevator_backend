@@ -16,6 +16,7 @@ public class Elevator extends BaseTimeEntity {
     public static final int INIT_TOP_FLOOR = 15;
     public static final int INIT_BOTTOM_FLOOR = 1;
     public static final int INIT_CURRENT_FLOOR = 10;
+    public static final int MAX_NUM_OF_PEOPLE = 10;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
