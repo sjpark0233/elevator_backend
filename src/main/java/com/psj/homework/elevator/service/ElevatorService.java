@@ -31,6 +31,7 @@ public class ElevatorService {
 
     /**
      * 엘리베이터 초기화
+     * 애플리케이션 시작 시 호출 용도
      *
      * @return 엘리베이터 id
      */

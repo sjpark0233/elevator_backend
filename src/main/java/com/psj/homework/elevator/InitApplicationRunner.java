@@ -9,6 +9,9 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+/**
+ * 애플리케이션 시작 시 동작 용도
+ */
 @Order(1)
 @Component
 public class InitApplicationRunner implements ApplicationRunner {
@@ -18,6 +21,11 @@ public class InitApplicationRunner implements ApplicationRunner {
     @Autowired
     private ElevatorService elevatorService;
 
+    /**
+     * 엘리베이터 1개 생성
+     *
+     * @param args
+     */
     @Override
     public void run(ApplicationArguments args) {
         Long elevatorId = elevatorService.initElevator();
