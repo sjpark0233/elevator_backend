@@ -1,6 +1,7 @@
 package com.psj.homework.elevator.web;
 
 import com.psj.homework.elevator.dto.ReservationDto;
+import com.psj.homework.elevator.dto.ResponseDto;
 import com.psj.homework.elevator.dto.StatusDto;
 import com.psj.homework.elevator.service.ElevatorService;
 import lombok.RequiredArgsConstructor;
@@ -19,24 +20,24 @@ public class ElevatorController {
     /**
      * 가동 API
      */
-    @PostMapping("/elevator/operate")
-    public void operate(Long elevatorId) {
+    @GetMapping(value = {"/elevator/operate/{elevatorId}","/elevator/operate"})
+    public StatusDto operate(@PathVariable(required = false) Long elevatorId) {
 
         if (elevatorId == null) {
             elevatorId = DEFAULT_ELEVATOR_ID;
         }
 
-        elevatorService.operateElevator(elevatorId);
+        return elevatorService.operateElevator(elevatorId);
     }
 
     /**
      * 탑승예약 API
      *
      * @param reservationDto 예약정보
-     * @return 예약정보 id
+     * @return 응답메시지
      */
     @PostMapping("/elevator/reservation")
-    public Long reservation(@RequestBody ReservationDto reservationDto) {
+    public ResponseDto reservation(@RequestBody ReservationDto reservationDto) {
         return elevatorService.setReservation(reservationDto);
     }
 
@@ -60,14 +61,15 @@ public class ElevatorController {
      * 비상정지 API
      *
      * @param elevatorId 엘리베이터 id
+     * @return 응답메시지
      */
     @GetMapping(value = {"/elevator/emergencyStop/{elevatorId}", "/elevator/emergencyStop"})
-    public void emergencyStop(@PathVariable(required = false) Long elevatorId) {
+    public ResponseDto emergencyStop(@PathVariable(required = false) Long elevatorId) {
 
         if (elevatorId == null) {
             elevatorId = DEFAULT_ELEVATOR_ID;
         }
 
-        elevatorService.setEmergencyStop(elevatorId);
+        return elevatorService.setEmergencyStop(elevatorId);
     }
 }

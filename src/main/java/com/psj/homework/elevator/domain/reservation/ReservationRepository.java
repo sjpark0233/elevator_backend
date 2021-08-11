@@ -7,9 +7,12 @@ import java.util.List;
 
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
-    @Query("SELECT p FROM Reservation p WHERE elevatorId = ?1 AND boardingStatus <> 2")
+    @Query("SELECT p FROM Reservation p WHERE elevatorId = ?1 AND boardingStatus <> 2 ORDER BY id ASC")
     List<Reservation> findAllExceptGetOff(Long elevatorId);
 
-    @Query("SELECT p FROM Reservation p WHERE elevatorId = ?1 AND boardingStatus = 1")
+    @Query("SELECT p FROM Reservation p WHERE elevatorId = ?1 AND boardingStatus = 0 ORDER BY id ASC")
+    List<Reservation> findAllWaiting(Long elevatorId);
+
+    @Query("SELECT p FROM Reservation p WHERE elevatorId = ?1 AND boardingStatus = 1 ORDER BY id ASC")
     List<Reservation> findAllOnBoard(Long elevatorId);
 }

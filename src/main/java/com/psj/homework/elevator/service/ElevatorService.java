@@ -1,14 +1,11 @@
 package com.psj.homework.elevator.service;
 
-import com.psj.homework.elevator.InitApplicationRunner;
 import com.psj.homework.elevator.domain.elevator.Elevator;
 import com.psj.homework.elevator.domain.elevator.ElevatorRepository;
 import com.psj.homework.elevator.domain.reservation.Reservation;
 import com.psj.homework.elevator.domain.reservation.ReservationRepository;
 import com.psj.homework.elevator.dto.*;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -46,8 +43,165 @@ public class ElevatorService {
         return elevatorRepository.save(elevatorDto.toEntity()).getId();
     }
 
-    public void operateElevator(Long elevatorId) {
-        //TODO
+    /**
+     * 가동 서비스
+     *
+     * @param elevatorId 엘리베이터 id
+     * @return 엘리베이터 상태정보
+     */
+    @Transactional
+    public StatusDto operateElevator(Long elevatorId) {
+
+        Elevator elevator = elevatorRepository.findById(elevatorId).orElseThrow(() -> new IllegalArgumentException("존재하지 않는 엘리베이터입니다!"));
+        List<Reservation> waitingResvs = reservationRepository.findAllWaiting(elevatorId);      // 예약정보 (외부대기자)
+        List<Reservation> boardingResvs = reservationRepository.findAllOnBoard(elevatorId);     // 예약정보 (탑승자)
+
+        int currentElevatorFloor = elevator.getCurrentFloor();          // 현재 엘리베이터층
+
+        // 대기자 or 탑승자가 있는 경우 동작함
+        if ((waitingResvs != null && waitingResvs.size() > 0) || (boardingResvs != null && boardingResvs.size() > 0)) {
+
+            List<Reservation> currentFloorWaitingResvs = new ArrayList<>(); // 출발층이 현재층인 외부대기자
+            for (Reservation reservation : waitingResvs) {
+                if (reservation.getDepartureFloor() == currentElevatorFloor) {
+                    currentFloorWaitingResvs.add(reservation);
+                }
+            }
+
+            // 현재 층에서 승차할 사람이 있는 경우 승차함
+            // 이동하지 않았으므로 하차할 사람은 없음
+            if (currentFloorWaitingResvs.size() > 0) {
+
+                // 현재층 탑승 처리
+                this.setStatusOnBoarding(elevatorId, currentFloorWaitingResvs);
+
+                // 엘리베이터 방향 전환
+                if (elevator.getDirection() == ELEVATOR_DIRECTION_STOP) {
+                    if (currentElevatorFloor < currentFloorWaitingResvs.get(0).getDestinationFloor()) {
+                        elevator.setCurrentFloor(ELEVATOR_DIRECTION_UP);
+                    } else if (currentElevatorFloor > currentFloorWaitingResvs.get(0).getDestinationFloor()) {
+                        elevator.setCurrentFloor(ELEVATOR_DIRECTION_DOWN);
+                    }
+                }
+                elevatorRepository.save(elevator);
+
+                // 출발층이 다른층인 외부대기자는 대기횟수 +1
+                List<Reservation> otherFloorWaitingResvs = new ArrayList<>();
+                for (Reservation reservation : waitingResvs) {
+                    if (reservation.getDepartureFloor() != currentElevatorFloor) {
+                        reservation.setWaitingExternalCount(reservation.getWaitingExternalCount() + 1);
+                        otherFloorWaitingResvs.add(reservation);
+                    }
+                }
+                if (otherFloorWaitingResvs.size() > 0) {
+                    reservationRepository.saveAll(otherFloorWaitingResvs);
+                }
+
+            } else {
+
+                // 엘리베이터 중지 상태이면 방향 전환
+                if (elevator.getDirection() == ELEVATOR_DIRECTION_STOP) {
+                    if (currentElevatorFloor < waitingResvs.get(0).getDepartureFloor()) {
+                        elevator.setDirection(ELEVATOR_DIRECTION_UP);
+                    } else if (currentElevatorFloor > waitingResvs.get(0).getDepartureFloor()) {
+                        elevator.setDirection(ELEVATOR_DIRECTION_DOWN);
+                    }
+                }
+                elevatorRepository.save(elevator);
+
+
+                // 엘리베이터 이동
+                if (elevator.getDirection() == ELEVATOR_DIRECTION_UP) {
+                    currentElevatorFloor += 1;
+                } else if (elevator.getDirection() == ELEVATOR_DIRECTION_DOWN) {
+                    currentElevatorFloor -= 1;
+                }
+                elevator.setCurrentFloor(currentElevatorFloor);
+                elevatorRepository.save(elevator);
+
+                // 이동 후 탑승자 하차
+                List<Reservation> currentFloorGetOffResvs = new ArrayList<>();  // 도착층이 현재층인 탑승자
+                for (Reservation reservation : boardingResvs) {
+                    if (reservation.getDestinationFloor() == currentElevatorFloor) {
+                        currentFloorGetOffResvs.add(reservation);
+                    }
+
+                    // 탑승자 모두 내부대기횟수 + 1
+                    reservation.setWaitingInternalCount(reservation.getWaitingInternalCount() + 1);
+                }
+                if (boardingResvs.size() > 0) {
+                    reservationRepository.saveAll(boardingResvs);
+                }
+                this.setStatusGetOff(currentFloorGetOffResvs);
+
+                // 이동 후 승차대기자 승차
+                currentFloorWaitingResvs.clear();   // 출발층이 현재층인 외부대기자
+                for (Reservation reservation : waitingResvs) {
+                    if (reservation.getDepartureFloor() == currentElevatorFloor) {
+                        currentFloorWaitingResvs.add(reservation);
+                    }
+
+                    // 승차대기자 모두 외부대기횟수 + 1
+                    reservation.setWaitingExternalCount(reservation.getWaitingExternalCount() + 1);
+                }
+                if (waitingResvs.size() > 0) {
+                    reservationRepository.saveAll(waitingResvs);
+                }
+                this.setStatusOnBoarding(elevatorId, currentFloorWaitingResvs);
+
+                // 승하차가 끝난 후 엘리베이터 방향 전환
+                List<Reservation> restResvs = reservationRepository.findAllExceptGetOff(elevatorId);    // 외부대기자 and 탑승자
+
+                if (restResvs == null || restResvs.size() < 1) {
+
+                    elevator.setDirection(ELEVATOR_DIRECTION_STOP);
+
+                } else if (elevator.getDirection() == ELEVATOR_DIRECTION_UP) {
+
+                    boolean flag = false;
+
+                    for (Reservation reservation : restResvs) {
+                        if (reservation.getBoardingStatus() == BOARDING_STATUS_WAITING && currentElevatorFloor < reservation.getDepartureFloor()) {
+                            flag = true;
+                            break;
+                        }
+                        if (reservation.getBoardingStatus() == BOARDING_STATUS_ON_BOARD && currentElevatorFloor < reservation.getDestinationFloor()) {
+                            flag = true;
+                            break;
+                        }
+                    }
+
+                    if (!flag) {
+                        elevator.setDirection(ELEVATOR_DIRECTION_DOWN);
+                    }
+
+                } else if (elevator.getDirection() == ELEVATOR_DIRECTION_DOWN) {
+
+                    boolean flag = false;
+
+                    for (Reservation reservation : restResvs) {
+                        if (reservation.getBoardingStatus() == BOARDING_STATUS_WAITING && currentElevatorFloor > reservation.getDepartureFloor()) {
+                            flag = true;
+                            break;
+                        }
+                        if (reservation.getBoardingStatus() == BOARDING_STATUS_ON_BOARD && currentElevatorFloor > reservation.getDestinationFloor()) {
+                            flag = true;
+                            break;
+                        }
+                    }
+
+                    if (!flag) {
+                        elevator.setDirection(ELEVATOR_DIRECTION_UP);
+                    }
+                }
+                elevatorRepository.save(elevator);
+            }
+        } else {
+            elevator.setDirection(ELEVATOR_DIRECTION_STOP);
+            elevatorRepository.save(elevator);
+        }
+
+        return getElevatorStatus(elevatorId);
     }
 
     /**
@@ -56,8 +210,34 @@ public class ElevatorService {
      * @param reservationDto 예약정보
      * @return 예약정보 id
      */
-    public Long setReservation(ReservationDto reservationDto) {
-        return reservationRepository.save(reservationDto.toEntity()).getId();
+    public ResponseDto setReservation(ReservationDto reservationDto) {
+
+        System.out.println(reservationDto.getName() + " " + reservationDto.getElevatorId() + reservationDto.getDestinationFloor());
+
+        try {
+            Long elevatorId = reservationDto.getElevatorId();
+            Elevator elevator = elevatorRepository.findById(elevatorId).orElseThrow(() -> new IllegalArgumentException("존재하지 않는 엘리베이터입니다!"));
+            int departureFloor = reservationDto.getDepartureFloor();
+            int destinationFloor = reservationDto.getDestinationFloor();
+
+            if (departureFloor == destinationFloor) {
+                throw new Exception("출발층과 도착층이 같을 수 없습니다.");
+            }
+
+            if (departureFloor < elevator.getBottomFloor() || departureFloor > elevator.getTopFloor()) {
+                throw new Exception("출발 층수 범위가 벗어났습니다.");
+            }
+
+            if (destinationFloor < elevator.getBottomFloor() || destinationFloor > elevator.getTopFloor()) {
+                throw new Exception("도착착 층수 범위가 벗어났습니다.");
+           }
+
+            reservationRepository.save(reservationDto.toEntity()).getId();
+        } catch (Exception e) {
+            return new ResponseDto(false, e.getMessage());
+        }
+
+        return new ResponseDto(true, "");
     }
 
     /**
@@ -69,7 +249,7 @@ public class ElevatorService {
     @Transactional
     public StatusDto getElevatorStatus(Long elevatorId) {
 
-        Elevator elevator = elevatorRepository.findById(elevatorId).orElseThrow(() -> new IllegalArgumentException("Not exists Elevator!"));
+        Elevator elevator = elevatorRepository.findById(elevatorId).orElseThrow(() -> new IllegalArgumentException("존재하지 않는 엘리베이터입니다!"));
         List<Reservation> reservations = reservationRepository.findAllExceptGetOff(elevatorId);
 
         int currentFloor = elevator.getCurrentFloor();  // 현재 위치
@@ -85,9 +265,9 @@ public class ElevatorService {
             int destinationFloor = reservation.getDestinationFloor();
 
             if (reservation.getBoardingStatus() == BOARDING_STATUS_WAITING) {
-                internalPersons.add(new InternalPersonDto(name, waitingInternalCount, destinationFloor));
-            } else if (reservation.getBoardingStatus() == BOARDING_STATUS_ON_BOARD) {
                 externalPersons.add(new ExternalPersonDto(name, waitingExternalCount, departureFloor, destinationFloor));
+            } else if (reservation.getBoardingStatus() == BOARDING_STATUS_ON_BOARD) {
+                internalPersons.add(new InternalPersonDto(name, waitingInternalCount, destinationFloor));
             }
         }
 
@@ -98,16 +278,84 @@ public class ElevatorService {
      * 비상정지 서비스
      *
      * @param elevatorId 엘리베이터 id
+     * @return 응답메시지
      */
     @Transactional
-    public void setEmergencyStop(Long elevatorId) {
-        List<Reservation> reservations = reservationRepository.findAllOnBoard(elevatorId);
+    public ResponseDto setEmergencyStop(Long elevatorId) {
 
-        if (reservations != null && reservations.size() > 0) {
-            for (Reservation reservation : reservations) {
+        try {
+            List<Reservation> onBoardResvs = reservationRepository.findAllOnBoard(elevatorId);  // 탑승자
+            List<Reservation> waitingResvs = reservationRepository.findAllWaiting(elevatorId);  // 외부대기자
+
+            // 탑승자 전원 하차
+            if (onBoardResvs != null && onBoardResvs.size() > 0) {
+                for (Reservation reservation : onBoardResvs) {
+                    reservation.setBoardingStatus(BOARDING_STATUS_GET_OFF);
+                }
+                reservationRepository.saveAll(onBoardResvs);
+            }
+
+            // 외부대기자 대기횟수 + 1
+            if (waitingResvs != null && waitingResvs.size() > 0) {
+                for (Reservation reservation : waitingResvs) {
+                    reservation.setWaitingExternalCount(reservation.getWaitingExternalCount() + 1);
+                }
+                reservationRepository.saveAll(waitingResvs);
+            }
+
+            // 엘리베이터 정지
+            Elevator elevator = elevatorRepository.findById(elevatorId).orElseThrow(() -> new IllegalArgumentException("존재하지 않는 엘리베이터입니다!"));
+
+            elevator.setDirection(ELEVATOR_DIRECTION_STOP);
+            elevatorRepository.save(elevator);
+
+            //
+        } catch (Exception e) {
+            return new ResponseDto(false, e.getMessage());
+        }
+
+        return new ResponseDto(true, "");
+    }
+
+    /**
+     * 탑승 처리
+     * 최대 인원이 넘지 않게 탑승
+     *
+     * @param elevatorId    엘리베이터 id
+     * @param targetResvs   탑승대상 예약정보
+     */
+    private void setStatusOnBoarding(Long elevatorId, List<Reservation> targetResvs) {
+
+        int currentCount = reservationRepository.findAllOnBoard(elevatorId).size(); // 현재 탑승 인원
+
+        if (targetResvs != null) {
+            for (Reservation reservation : targetResvs) {
+                if (currentCount < ELEVATOR_MAX_PEOPLE) {
+                    reservation.setBoardingStatus(BOARDING_STATUS_ON_BOARD);
+                    currentCount++;
+                } else {
+                    break;
+                }
+            }
+
+            reservationRepository.saveAll(targetResvs);
+        }
+    }
+
+
+    /**
+     * 하차 처리
+     *
+     * @param targetResvs   하차대상 예약정보
+     */
+    private void setStatusGetOff(List<Reservation> targetResvs) {
+
+        if (targetResvs != null) {
+            for (Reservation reservation : targetResvs) {
                 reservation.setBoardingStatus(BOARDING_STATUS_GET_OFF);
             }
-            reservationRepository.saveAll(reservations);
+
+            reservationRepository.saveAll(targetResvs);
         }
     }
 }
