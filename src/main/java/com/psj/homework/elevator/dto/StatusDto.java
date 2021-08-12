@@ -10,7 +10,7 @@ import java.util.List;
 public class StatusDto {
 
     private final int currentFloor;
-    private final List<InternalPersonDto> internalPersons;
-    private final List<ExternalPersonDto> externalPersons;
+    private final List<InternalPersonDto> internalPeople;
+    private final List<ExternalPersonDto> externalPeople;
 
 }

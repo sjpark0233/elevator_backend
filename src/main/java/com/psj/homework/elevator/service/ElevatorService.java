@@ -92,7 +92,7 @@ public class ElevatorService {
                 }
 
                 // 현재층 대기자 탑승 처리
-                this.setStatusOnBoarding(elevatorId, currentFloorWaitingResvs);
+                this.setStatusOnBoarding(elevatorId, currentFloorWaitingResvs, true);
 
                 // 엘리베이터 방향 전환
                 if (elevator.getDirection() == ELEVATOR_DIRECTION_STOP) {
@@ -175,7 +175,7 @@ public class ElevatorService {
                 if (waitingResvs.size() > 0) {
                     reservationRepository.saveAll(waitingResvs);
                 }
-                this.setStatusOnBoarding(elevatorId, currentFloorWaitingResvs);
+                this.setStatusOnBoarding(elevatorId, currentFloorWaitingResvs, false);
 
                 // 승하차가 끝난 후 엘리베이터 방향 전환
                 List<Reservation> restResvs = reservationRepository.findAllExceptGetOff(elevatorId);    // 외부대기자 and 탑승자
@@ -357,8 +357,9 @@ public class ElevatorService {
      *
      * @param elevatorId    엘리베이터 id
      * @param targetResvs   탑승대상 예약정보
+     * @param isWaitCount  탑승하지 못한 경우 외부대기 카운트 여부
      */
-    private void setStatusOnBoarding(Long elevatorId, List<Reservation> targetResvs) {
+    private void setStatusOnBoarding(Long elevatorId, List<Reservation> targetResvs, boolean isWaitCount) {
 
         Elevator elevator = elevatorRepository.findById(elevatorId).orElseThrow(() -> new IllegalArgumentException("존재하지 않는 엘리베이터입니다!"));
         int maxPeople = elevator.getMaxPeople();
@@ -370,8 +371,9 @@ public class ElevatorService {
                     reservation.setBoardingStatus(BOARDING_STATUS_ON_BOARD);
                     currentCount++;
                 } else {
-                    reservation.setWaitingExternalCount(reservation.getWaitingExternalCount() + 1); // 탑승하지 못하였으므로 외부대기횟수 + 1
-                    break;
+                    if (isWaitCount) {
+                        reservation.setWaitingExternalCount(reservation.getWaitingExternalCount() + 1); // 탑승하지 못하였으므로 외부대기횟수 + 1
+                    }
                 }
             }
 
