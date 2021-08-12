@@ -15,4 +15,10 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     @Query("SELECT p FROM Reservation p WHERE elevatorId = ?1 AND boardingStatus = 1 ORDER BY id ASC")
     List<Reservation> findAllOnBoard(Long elevatorId);
+
+    @Query("SELECT MAX(departureFloor) FROM Reservation p WHERE elevatorId = ?1 AND boardingStatus <> 2 AND direction = 'D'")
+    Integer findTopFloorDown(Long elevatorId);
+
+    @Query("SELECT MIN(departureFloor) FROM Reservation p WHERE elevatorId = ?1 AND boardingStatus <> 2 AND direction = 'U'")
+    Integer findBottomFloorUp(Long elevatorId);
 }

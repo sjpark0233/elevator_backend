@@ -17,7 +17,7 @@ public class ReservationDto {
     private Long elevatorId;
 
     @Builder
-    public ReservationDto(String name, int v, int destinationFloor, Long elevatorId) {
+    public ReservationDto(String name, int departureFloor, int destinationFloor, Long elevatorId) {
         this.name = name;
         this.departureFloor = departureFloor;
         this.destinationFloor = destinationFloor;

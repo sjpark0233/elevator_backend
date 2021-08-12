@@ -8,6 +8,8 @@ import lombok.Setter;
 
 import javax.persistence.*;
 
+import static com.psj.homework.elevator.domain.elevator.Elevator.*;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -43,6 +45,9 @@ public class Reservation extends BaseTimeEntity {
     @Column
     private int boardingStatus;
 
+    @Column
+    private char direction;
+
     @Builder
     public Reservation(String name, int departureFloor, int destinationFloor, Long elevatorId) {
         this.name = name;
@@ -53,5 +58,8 @@ public class Reservation extends BaseTimeEntity {
         this.waitingExternalCount = 0;
         this.waitingInternalCount = 0;
         this.boardingStatus = BOARDING_STATUS_WAITING;
+        this.direction = (departureFloor < destinationFloor ? ELEVATOR_DIRECTION_UP
+                : (departureFloor > destinationFloor ? ELEVATOR_DIRECTION_DOWN
+                    : ELEVATOR_DIRECTION_STOP));
     }
 }

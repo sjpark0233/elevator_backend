@@ -62,16 +62,17 @@ public class ElevatorService {
         // 대기자 or 탑승자가 있는 경우 동작함
         if ((waitingResvs != null && waitingResvs.size() > 0) || (boardingResvs != null && boardingResvs.size() > 0)) {
 
+            Integer topFloorDown = reservationRepository.findTopFloorDown(elevatorId);      // 대기자&탑승자 중 가장 높은 층
+            Integer bottomFloorUp = reservationRepository.findBottomFloorUp(elevatorId);    // 대기자&탑승자 중 가장 낮은 층
+
             List<Reservation> currentFloorWaitingResvs = new ArrayList<>(); // 출발층이 현재층인 외부대기자 중, 엘리베이터 방향이 맞는 자
             for (Reservation reservation : waitingResvs) {
                 if (reservation.getDepartureFloor() == currentElevatorFloor
                         && (
-                                ((elevator.getDirection() == ELEVATOR_DIRECTION_UP && currentElevatorFloor < reservation.getDestinationFloor())
-                                || (elevator.getDirection() == ELEVATOR_DIRECTION_DOWN && currentElevatorFloor > reservation.getDestinationFloor())
-                                || (elevator.getDirection() == ELEVATOR_DIRECTION_STOP)
-                                )
-                                || currentElevatorFloor == elevator.getTopFloor()
-                                || currentElevatorFloor == elevator.getBottomFloor()
+                                elevator.getDirection() ==  reservation.getDirection()
+                                || elevator.getDirection() == ELEVATOR_DIRECTION_STOP
+                                || (topFloorDown != null && currentElevatorFloor == topFloorDown)
+                                || (bottomFloorUp != null && currentElevatorFloor == bottomFloorUp)
                         )
                 ) {
                     currentFloorWaitingResvs.add(reservation);
@@ -153,16 +154,16 @@ public class ElevatorService {
                 this.setStatusGetOff(currentFloorGetOffResvs);
 
                 // 이동 후 승차대기자 승차
+                topFloorDown = reservationRepository.findTopFloorDown(elevatorId);      // 대기자&탑승자 중 가장 높은 층
+                bottomFloorUp = reservationRepository.findBottomFloorUp(elevatorId);    // 대기자&탑승자 중 가장 낮은 층
                 currentFloorWaitingResvs.clear();   // 출발층이 현재층인 외부대기자 중, 엘리베이터 방향이 맞는 자
                 for (Reservation reservation : waitingResvs) {
                     if (reservation.getDepartureFloor() == currentElevatorFloor
                         && (
-                            ((elevator.getDirection() == ELEVATOR_DIRECTION_UP && currentElevatorFloor < reservation.getDestinationFloor())
-                                || (elevator.getDirection() == ELEVATOR_DIRECTION_DOWN && currentElevatorFloor > reservation.getDestinationFloor())
-                                || (elevator.getDirection() == ELEVATOR_DIRECTION_STOP)
-                            )
-                            || currentElevatorFloor == elevator.getTopFloor()
-                            || currentElevatorFloor == elevator.getBottomFloor()
+                            elevator.getDirection() == reservation.getDirection()
+                            || elevator.getDirection() == ELEVATOR_DIRECTION_STOP
+                            || (topFloorDown != null && currentElevatorFloor == topFloorDown)
+                            || (bottomFloorUp != null && currentElevatorFloor == bottomFloorUp)
                         )
                     ) {
                         currentFloorWaitingResvs.add(reservation);
