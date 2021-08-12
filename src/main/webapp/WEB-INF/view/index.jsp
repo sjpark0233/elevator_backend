@@ -22,11 +22,10 @@
                     dataType : 'json',
                     contentType:'application/json; charset=utf-8',
                     success : function(data) {
-                        alert("예약성공");
-                        location.href='/';
+                        alert(JSON.stringify(data));
                     },
                     error : function(xhr, status, error) {
-                        alert("예약실패 : " +xhr + status + error);
+                        alert(xhr + "/" + status + "/" + error);
                     }
                 });
             }
@@ -41,7 +40,7 @@
                     목적층 : <input type="text" id="destinationFloor" size="10"><br/>
                 </p>
             </form>
-            <input type="button" value="확인" onclick="doReservation()">
+            <input type="button" value="탑승예약" onclick="doReservation()">
         <p>3. 상태확인</p>
             <button onclick="location='/elevator/status'">상태확인</button>
         <p>4. 비상정지</p>

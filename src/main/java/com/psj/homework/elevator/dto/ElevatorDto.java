@@ -12,12 +12,14 @@ public class ElevatorDto {
     private int topFloor;
     private int bottomFloor;
     private int currentFloor;
+    private int maxPeople;
 
     @Builder
-    public ElevatorDto(int topFloor, int bottomFloor, int currentFloor) {
+    public ElevatorDto(int topFloor, int bottomFloor, int currentFloor, int maxPeople) {
         this.topFloor = topFloor;
         this.bottomFloor = bottomFloor;
         this.currentFloor = currentFloor;
+        this.maxPeople = maxPeople;
     }
 
     public Elevator toEntity() {
@@ -25,6 +27,7 @@ public class ElevatorDto {
                 .topFloor(topFloor)
                 .bottomFloor(bottomFloor)
                 .currentFloor(currentFloor)
+                .maxPeople(maxPeople)
                 .build();
     }
 }

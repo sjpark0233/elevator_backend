@@ -7,6 +7,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 public class ResponseDto {
 
-    private final boolean succes;
+    private final boolean success;
     private final String message;
 }
